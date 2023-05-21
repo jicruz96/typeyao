@@ -1,0 +1,53 @@
+[tool.poetry]
+name = "typeyao"
+version = "0.1.0"
+description = "A pydantic-flavored library. Handles nested data better and can be used as an in-memory database"
+authors = ["J.I. Cruz <ji@jicruz.com>"]
+readme = "README.md"
+packages = [
+    { include = "typeyao", from = "." },
+]
+
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.1.0"
+flake8 = "^6.0.0"
+isort = "^5.12.0"
+pre-commit = "^3.0.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.black]
+line-length = 120
+target-version = ['py310']
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | \venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+)
+'''
+
+[tool.pyright]
+reportUnnecessaryIsInstance = false
+reportSelfClsParameterName = false
