@@ -122,7 +122,9 @@ class FieldInfo:
         if default is not MISSING:
             for attr_name in ("default_factory", "unique", "primary_key"):
                 if getattr(self, attr_name) not in (MISSING, False):
-                    raise InvalidFieldError(f"Cannot specify both default and {attr_name}")
+                    raise InvalidFieldError(
+                        f"Cannot specify both default and {attr_name}"
+                    )
 
     def __repr__(self) -> str:
         return (
@@ -212,7 +214,9 @@ class FieldInfo:
         elif isinstance(self.type, typing.ForwardRef):
             self.__type = type_registry[self.type.__forward_arg__]
 
-    def __get__(self, instance: "Model" | None, owner: type["Model"]) -> typing.Any:
+    def __get__(
+        self, instance: "Model" | None, owner: type["Model"]
+    ) -> typing.Any:
         if self.classfield:
             return self.__classvar_default
         if instance is None:
@@ -223,11 +227,15 @@ class FieldInfo:
         assert not isinstance(self.type, MissingType), f"type unset for {self}"
         check_type(value=value, type_=self.type)
         if self.choices and value not in self.choices:
-            raise InvalidTypeError(f"Value must be one of {','.join(map(repr,self.choices))} but value was {value}")
+            raise InvalidTypeError(
+                f"Value must be one of {','.join(map(repr,self.choices))} but value was {value}"
+            )
 
     def __set_classvar__(self, owner: type["Model"], value: typing.Any) -> None:
         if owner is not self.owner:
-            raise InvalidFieldError(f"Field {self.name!r} on {owner.__name__} is not a classfield.")
+            raise InvalidFieldError(
+                f"Field {self.name!r} on {owner.__name__} is not a classfield."
+            )
         self._validate_value_type(value)
         self.__classvar_default = value
 
@@ -237,10 +245,14 @@ class FieldInfo:
 
     def __set_name__(self, owner: type["Model"], name: str) -> None:
         if self.owner:
-            raise InvalidFieldError(f"Field {name!r} on {owner.__name__} has already been set to {self.owner}")
+            raise InvalidFieldError(
+                f"Field {name!r} on {owner.__name__} has already been set to {self.owner}"
+            )
 
         if self.__name is not MISSING and self.__name != name:
-            raise InvalidFieldError(f"Field '{name}' has conflicting names: {self.__name} != {name}")
+            raise InvalidFieldError(
+                f"Field '{name}' has conflicting names: {self.__name} != {name}"
+            )
 
         annotation = owner.__annotations__.get(name, MISSING)
         if self.type is MISSING:
@@ -250,9 +262,15 @@ class FieldInfo:
                 )
             self.__type = annotation
         elif annotation is not MISSING and self.type != annotation:
-            raise InvalidFieldError(f"Field '{name}' has conflicting type annotations: {self.type} != {annotation}")
+            raise InvalidFieldError(
+                f"Field '{name}' has conflicting type annotations: {self.type} != {annotation}"
+            )
 
-        if is_classvar(self.type) or (isinstance(self.type, str) and "ClassVar" in self.type) or self.classfield:
+        if (
+            is_classvar(self.type)
+            or (isinstance(self.type, str) and "ClassVar" in self.type)
+            or self.classfield
+        ):
             self._validate_classvar_default_field(owner, name)
             self.__classfield = True
             self.__init = False
@@ -308,23 +326,35 @@ class FieldInfo:
 
     def _validate_classvar_default_field(self, owner: type["Model"], name: str):
         if self.primary_key is True:
-            raise InvalidFieldError(f"Field '{name}' cannot be a primary key and a class field.")
+            raise InvalidFieldError(
+                f"Field '{name}' cannot be a primary key and a class field."
+            )
         if self.unique is True:
-            raise InvalidFieldError(f"Field '{name}' cannot be unique and a class field.")
+            raise InvalidFieldError(
+                f"Field '{name}' cannot be unique and a class field."
+            )
         if self.index is True:
-            raise InvalidFieldError(f"Field '{name}' cannot be indexed and a class field.")
+            raise InvalidFieldError(
+                f"Field '{name}' cannot be indexed and a class field."
+            )
         if self.choices:
-            raise InvalidFieldError(f"Field '{name}' cannot have choices and be a class field.")
+            raise InvalidFieldError(
+                f"Field '{name}' cannot have choices and be a class field."
+            )
         setter_name = f"set_{name}"
         setter_repr = f"{owner.__name__}.{setter_name}()"  # type: ignore
         setter = getattr(owner, setter_name, MISSING)
-        if setter != MISSING and not (inspect.ismethod(setter) and setter.__self__ is owner):
+        if setter != MISSING and not (
+            inspect.ismethod(setter) and setter.__self__ is owner
+        ):
             raise InvalidFieldError(
                 f"'{name}' field is a class attribute, but its setter (i.e {setter_repr}) is not a classmethod"
             )
         self._validate_instance_field_defaults(owner, name)
 
-    def _validate_instance_field_defaults(self, owner: type["Model"], name: str):
+    def _validate_instance_field_defaults(
+        self, owner: type["Model"], name: str
+    ):
         setter_name = f"set_{name}"
         setter_repr = f"{owner.__name__}.{setter_name}()"
         default_count = 0
@@ -340,4 +370,6 @@ class FieldInfo:
             )
 
         if self.init is False and default_count == 0:
-            raise InvalidFieldError(f"Field '{name}' must have a 'default', 'default_factory' or {setter_repr!r}")
+            raise InvalidFieldError(
+                f"Field '{name}' must have a 'default', 'default_factory' or {setter_repr!r}"
+            )

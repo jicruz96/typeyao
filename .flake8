@@ -11,6 +11,6 @@ exclude =
 	docs/*,
 	build,
 	dist
-max-line-length = 120
+max-line-length = 80
 per-file-ignores =
     */__init__.py:F401,F403,E402

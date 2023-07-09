@@ -38,13 +38,17 @@ class TypeRegistry(dict[str, type]):
         for key, value in kwargs.items():
             self.register(type_=value, name=key)
 
-    def register(self, type_: type | None = None, *, name: Optional[str] = None) -> type | Callable[[type], type]:
+    def register(
+        self, type_: type | None = None, *, name: Optional[str] = None
+    ) -> type | Callable[[type], type]:
         def wrap(type_: type, name: Optional[str] = None) -> type:
             name = name if name is not None else type_.__name__
             if name in self.keys():
                 if self[name] is type_:
                     return type_
-                raise TypeNameAlreadyRegisteredError(f"Cannot overwrite registered type: '{name}': {self[name]}")
+                raise TypeNameAlreadyRegisteredError(
+                    f"Cannot overwrite registered type: '{name}': {self[name]}"
+                )
             self[name] = type_
             return type_
 
@@ -62,7 +66,19 @@ class TypeRegistry(dict[str, type]):
 
 
 type_registry = TypeRegistry(
-    date, datetime, bool, int, list, None.__class__, set, dict, tuple, str, float, bytes, Collection
+    date,
+    datetime,
+    bool,
+    int,
+    list,
+    None.__class__,
+    set,
+    dict,
+    tuple,
+    str,
+    float,
+    bytes,
+    Collection,
 )
 
 register_type = type_registry.register
@@ -73,11 +89,15 @@ def is_optional_type(type_: Any) -> bool:
 
 
 def is_union_type(type_: Any) -> bool:
-    return isinstance(type_, types.UnionType) or isinstance(type_, _UnionGenericAlias)
+    return isinstance(type_, types.UnionType) or isinstance(
+        type_, _UnionGenericAlias
+    )
 
 
 def is_classvar(type_: Any) -> bool:
-    return type_ is ClassVar or (is_nested_generic_alias(type_) and type_.__origin__ is ClassVar)
+    return type_ is ClassVar or (
+        is_nested_generic_alias(type_) and type_.__origin__ is ClassVar
+    )
 
 
 def is_simple_generic_alias(type_: Any) -> bool:
@@ -86,7 +106,9 @@ def is_simple_generic_alias(type_: Any) -> bool:
 
 def is_nested_generic_alias(type_: Any) -> bool:
     return (
-        isinstance(type_, (GenericAlias, _GenericAlias)) and hasattr(type_, "__origin__") and hasattr(type_, "__args__")
+        isinstance(type_, (GenericAlias, _GenericAlias))
+        and hasattr(type_, "__origin__")
+        and hasattr(type_, "__args__")
     )
 
 
@@ -106,12 +128,17 @@ def _validate_nested_types(
 ) -> bool:
     for type_ in types:
         try:
-            if check_type(value, type_, raise_on_exception, check_class) is True:
+            if (
+                check_type(value, type_, raise_on_exception, check_class)
+                is True
+            ):
                 return True
         except InvalidTypeError:
             continue
     if raise_on_exception:
-        error_message = f"Invalid value {value!r} of type {type(value)} must be "
+        error_message = (
+            f"Invalid value {value!r} of type {type(value)} must be "
+        )
         if check_class:
             error_message += "a subclass of "
         error_message += f"one of: {', '.join(map(str, types))}"
@@ -154,10 +181,14 @@ def check_type(
         type_name = type_.__name__
     elif is_forward_ref(type_):
         if type_.__forward_arg__ not in type_registry:
-            raise InvalidTypeError(f"ForwardRef for unknown type '{type_.__forward_arg__}'")
+            raise InvalidTypeError(
+                f"ForwardRef for unknown type '{type_.__forward_arg__}'"
+            )
         type_name = type_.__forward_arg__
     else:
-        error_message = f"Unknown type {type_}. Got value {value} of type {type(value)}"
+        error_message = (
+            f"Unknown type {type_}. Got value {value} of type {type(value)}"
+        )
         if raise_on_exception:
             raise InvalidTypeError(error_message)
         return False
@@ -171,7 +202,9 @@ def check_type(
     else:
         result = isinstance(value, registered_type)
     if result is False and raise_on_exception is True:
-        expected_type = (registered_type.__class__ if check_class else registered_type).__name__
+        expected_type = (
+            registered_type.__class__ if check_class else registered_type
+        ).__name__
         raise InvalidTypeError(
             f"value must be of type {expected_type}, not of type {type(value).__name__} (value: {value!r})"
         )
@@ -211,7 +244,8 @@ if __name__ == "__main__":
         check_type({}, dict),
         check_type({}, dict[str, str]),
         check_type(1, ForwardRef("int")),
-        check_type("not an int", ForwardRef("int"), raise_on_exception=False) is False,
+        check_type("not an int", ForwardRef("int"), raise_on_exception=False)
+        is False,
         check_type(Foo, Type[Foo]),
     ]
     assert all(test_cases)
