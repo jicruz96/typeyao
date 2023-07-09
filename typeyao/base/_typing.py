@@ -25,6 +25,8 @@ class MissingType:
     def __repr__(self) -> str:
         return "MISSING"
 
+    __class_getitem__ = classmethod(GenericAlias)  # type: ignore
+
 
 MISSING = MissingType()
 

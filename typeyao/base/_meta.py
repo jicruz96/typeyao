@@ -52,7 +52,11 @@ class ModelFieldMap(dict[str, FieldInfo]):
         for name in field_names:
             value = namespace.pop(name)
             if not isinstance(value, FieldInfo):
-                value = FieldInfo(name=name, default=value, type=annotations.get(name, MISSING))
+                value = FieldInfo(
+                    name=name,
+                    default=value,
+                    type=annotations.get(name, MISSING),
+                )
             fields_map[name] = value
         return fields_map
 
@@ -78,7 +82,12 @@ class ModelMeta(type):
     __fields_map__: ModelFieldMap
 
     def __new__(
-        mcs, class_name: str, bases: tuple[type, ...], namespace: dict[str, Any], abstract: bool = False, **kwargs: Any
+        mcs,
+        class_name: str,
+        bases: tuple[type, ...],
+        namespace: dict[str, Any],
+        abstract: bool = False,
+        **kwargs: Any,
     ) -> type["Model"]:
         mcs._check_for_protected_names(class_name, bases, namespace)
         namespace = mcs._namespace_constructor(namespace, bases)
@@ -113,7 +122,6 @@ class ModelMeta(type):
                             fields_map[name] = field.copy()  # type: ignore
                             non_class_fields_map[name] = field  # type: ignore
         namespace.update({**non_class_fields_map, "__fields_map__": fields_map})
-        breakpoint()
         return namespace
 
     @property
