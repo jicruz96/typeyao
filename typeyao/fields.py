@@ -214,13 +214,16 @@ class FieldInfo:
         return instance.__dict__[self.name]  # type: ignore
 
     def __set__(self, instance: "Model", value: typing.Any) -> None:
+        self._validate_value_type(value=value)
+        instance.__dict__[self.name] = value  # type: ignore
+
+    def _validate_value_type(self, value: typing.Any) -> None:
         assert not isinstance(self.type, MissingType), f"type unset for {self}"
         check_type(value=value, type_=self.type)
         if self.choices and value not in self.choices:
             raise InvalidTypeError(
                 f"Value must be one of {','.join(map(repr,self.choices))} but value was {value}"
             )
-        instance.__dict__[self.name] = value  # type: ignore
 
     def __set_name__(self, owner: type["Model"], name: str) -> None:
         if self.owner:
