@@ -114,9 +114,7 @@ class ModelMeta(type):
             for name in PROTECTED_MODEL_ATTRIBUTE_NAMES.intersection(namespace)
         }
         if len(bases) > 0 and class_name == "Model":
-            errors[
-                class_name
-            ] = "'Model' is a protected class name. Use something else."
+            errors[class_name] = "'Model' is a protected class name."
         if errors:
             raise InvalidModelError(json.dumps(errors, indent=4))
 
