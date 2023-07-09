@@ -100,7 +100,7 @@ class ModelMeta(type):
         mcs._check_for_protected_names(class_name, bases, namespace)
         namespace = mcs._namespace_constructor(namespace, bases)
         namespace["_is_abstract"] = abstract
-        cls: type["Model"] = super().__new__(mcs, class_name, bases, namespace)  # type: ignore
+        cls: type["Model"] = super().__new__(mcs, class_name, bases, namespace)  # type: ignore  # noqa: E501
         cls.__cache__ = ModelCache(cls)
         register_type(cls)
         return cls
@@ -125,17 +125,19 @@ class ModelMeta(type):
         mcs, namespace: dict[str, Any], bases: tuple[type, ...]
     ) -> dict[str, Any]:
         fields_map = ModelFieldMap.from_namespace(namespace)
-        non_class_fields_map = {}
+        class_fields_map = {}
         for base in bases:
             if isinstance(base, ModelMeta):
                 for name, field in base.__fields_map__.items():  # type: ignore
                     if name not in fields_map:
                         if field.classfield:  # type: ignore
-                            fields_map[name] = field  # type: ignore
+                            class_fields_map[name] = field  # type: ignore
                         else:
                             fields_map[name] = field.copy()  # type: ignore
-                            non_class_fields_map[name] = field  # type: ignore
-        namespace.update({**non_class_fields_map, "__fields_map__": fields_map})
+                            namespace["__annotations__"][name] = field.type  # type: ignore # noqa: E501
+        namespace.update(
+            {**fields_map, "__fields_map__": {**fields_map, **class_fields_map}}
+        )
         return namespace
 
     @property

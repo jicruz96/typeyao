@@ -6,7 +6,6 @@ from typing import Any
 from typeyao.base._meta import (
     PROTECTED_MODEL_ATTRIBUTE_NAMES,
     ModelCache,
-    ModelFieldMap,
     ModelMeta,
 )
 from typeyao.base._typing import MISSING, InvalidTypeError
@@ -15,7 +14,7 @@ from typeyao.fields import FieldInfo
 
 
 class Model(metaclass=ModelMeta):
-    __fields_map__: ModelFieldMap
+    __fields_map__: dict[str, FieldInfo]
     __cache__: ModelCache
     _is_abstract: bool
 
@@ -55,7 +54,9 @@ class Model(metaclass=ModelMeta):
     ) -> set[FieldInfo]:
         exclude = exclude or set()
         fields = {
-            f for f in self.__fields_map__.values() if f.name not in exclude
+            f
+            for f in self.__fields_map__.values()
+            if f.name not in exclude and not f.classfield
         }
         fields_with_setters = {
             f for f in fields if hasattr(self, f"set_{f.name}")
