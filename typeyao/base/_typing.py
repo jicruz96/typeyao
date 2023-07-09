@@ -1,7 +1,7 @@
+# isort:skip_file
 from __future__ import annotations
 
 import types
-from collections.abc import Collection
 from datetime import date, datetime
 from functools import partial
 from typing import *  # noqa: F403, F401  # type: ignore
@@ -10,6 +10,7 @@ from typing import _GenericAlias  # type: ignore
 from typing import _SpecialGenericAlias  # type: ignore
 from typing import _UnionGenericAlias  # type: ignore
 from typing import Any, Callable, ClassVar, ForwardRef, Optional, Type
+from collections.abc import Collection
 
 
 class InvalidTypeError(Exception):
@@ -70,7 +71,7 @@ def is_optional_type(type_: Any) -> bool:
 
 
 def is_union_type(type_: Any) -> bool:
-    return isinstance(type_, types.UnionType)
+    return isinstance(type_, types.UnionType) or isinstance(type_, _UnionGenericAlias)
 
 
 def is_classvar(type_: Any) -> bool:

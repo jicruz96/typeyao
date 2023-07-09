@@ -45,6 +45,8 @@ class ModelFieldMap(dict[str, FieldInfo]):
             if not (name.startswith("_") and not isinstance(value, FieldInfo))
             # skip classmethods and functions
             and not (inspect.isfunction(value) or inspect.ismethod(value) or isinstance(value, classmethod))
+            # skip properties
+            and not isinstance(value, property)
         ]
 
         for name in field_names:
@@ -54,31 +56,33 @@ class ModelFieldMap(dict[str, FieldInfo]):
             fields_map[name] = value
         return fields_map
 
-    def __setitem__(self, __key: str, __value: Any) -> None:
-        if not isinstance(__value, FieldInfo):
-            raise TypeError(f"{self.__class__.__name__} item must be a FieldInfo class. Got {__value!r}")
-        if not isinstance(__key, str):
+    def __setitem__(self, key: str, value: Any) -> None:
+        if not isinstance(value, FieldInfo):
+            raise TypeError(f"{self.__class__.__name__} item must be a FieldInfo class. Got {value!r}")
+        if not isinstance(key, str):
             raise TypeError(f"{self.__class__.__name__} keys must be strings.")
-        if __value.primary_key:
+        if value.primary_key:
             if self.pk:
-                raise InvalidModelError(f"Cannot have multiple primary keys: {self.pk.name!r} and {__key!r}")
-            self.pk = __value
-        super().__setitem__(__key, __value)
+                raise InvalidModelError(f"Cannot have multiple primary keys: {self.pk.name!r} and {key!r}")
+            self.pk = value
+        super().__setitem__(key, value)
 
     def __getitem__(self, __key: str) -> FieldInfo:
         return super().__getitem__(__key)
 
     def __set_name__(self, owner: type[Model], name: str) -> None:
         self._owner = owner
-        for name, field in self.items():
-            field.__set_name__(owner, name)
-            setattr(owner, field.name, field)
 
 
 class ModelMeta(type):
-    def __new__(mcs, class_name: str, bases: tuple[type, ...], namespace: dict[str, Any]) -> type["Model"]:
+    __fields_map__: ModelFieldMap
+
+    def __new__(
+        mcs, class_name: str, bases: tuple[type, ...], namespace: dict[str, Any], abstract: bool = False, **kwargs: Any
+    ) -> type["Model"]:
         mcs._check_for_protected_names(class_name, bases, namespace)
         namespace = mcs._namespace_constructor(namespace, bases)
+        namespace["_is_abstract"] = abstract
         cls: type["Model"] = super().__new__(mcs, class_name, bases, namespace)  # type: ignore
         cls.__cache__ = ModelCache(cls)
         register_type(cls)
@@ -98,22 +102,31 @@ class ModelMeta(type):
     @classmethod
     def _namespace_constructor(mcs, namespace: dict[str, Any], bases: tuple[type, ...]) -> dict[str, Any]:
         fields_map = ModelFieldMap.from_namespace(namespace)
+        non_class_fields_map = {}
         for base in bases:
             if isinstance(base, ModelMeta):
                 for name, field in base.__fields_map__.items():  # type: ignore
                     if name not in fields_map:
-                        fields_map[name] = field.copy()  # type: ignore
-        namespace.update({"__fields_map__": fields_map})
+                        if field.classfield:  # type: ignore
+                            fields_map[name] = field  # type: ignore
+                        else:
+                            fields_map[name] = field.copy()  # type: ignore
+                            non_class_fields_map[name] = field  # type: ignore
+        namespace.update({**non_class_fields_map, "__fields_map__": fields_map})
+        breakpoint()
         return namespace
 
-    def __setattr__(cls: type["Model"], __name: str, __value: Any) -> None:  # type: ignore
-        if __name in cls.__fields_map__.keys() and hasattr(cls, __name):
-            if not cls.__fields_map__[__name].classfield:
-                breakpoint()
-                raise ValueError(f"{__name!r} is not a class field.")
-            cls.__fields_map__[__name].__set_classvar__(cls, __value)
-        else:
-            super().__setattr__(__name, __value)
+    @property
+    def pk(cls) -> FieldInfo | None:
+        return cls.__fields_map__.pk
+
+    @property
+    def field_names(cls) -> set[str]:
+        return set(cls.__fields_map__.keys())
+
+    @property
+    def fields(cls) -> set[FieldInfo]:
+        return set(cls.__fields_map__.values())
 
 
 class ModelCache:
@@ -135,7 +148,7 @@ class ModelCache:
         self.all.add(obj)
 
     def get(self, pk_value: Any) -> "Model":
-        pk = self.model.__fields_map__.pk
+        pk = self.model.pk
         if pk is None:
             raise NoPrimaryKeyError(f"{self.model.__name__} does not have a primary key.")
         value = self._unique_field_cache[pk.name].get(pk_value)
@@ -186,7 +199,7 @@ class ModelCache:
 class UniqueFieldCache(dict[str, dict[Any, "Model"]]):
     def __init__(self, model: type["Model"]):
         self.model = model
-        self.update({f.name: {} for f in model.__fields_map__.values() if f.unique})
+        self.update({f.name: {} for f in model.fields if f.unique})
 
     def add_model(self, obj: "Model") -> None:
         if not isinstance(obj, self.model):
@@ -204,7 +217,7 @@ class UniqueFieldCache(dict[str, dict[Any, "Model"]]):
             cache[getattr(obj, field_name)] = obj
 
     def filter(self, error_if_not_found: bool = True, **kwargs: Any) -> set["Model"]:
-        invalid_kwargs = set(kwargs.keys()) - set(self.model.__fields_map__.keys())
+        invalid_kwargs = set(kwargs.keys()) - set(self.model.field_names)
         if invalid_kwargs:
             raise InvalidFieldError(f"{self.model.__name__} does not have fields named {invalid_kwargs}.")
 
@@ -226,7 +239,7 @@ class UniqueFieldCache(dict[str, dict[Any, "Model"]]):
 class IndexFieldCache(dict[str, dict[str, list["Model"]]]):
     def __init__(self, model: type["Model"]):
         self.model = model
-        self.update({f.name: defaultdict(list["Model"]) for f in model.__fields_map__.values() if f.index})
+        self.update({f.name: defaultdict(list["Model"]) for f in model.fields if f.index})
 
     def add_model(self, obj: "Model") -> None:
         if not isinstance(obj, self.model):
@@ -235,7 +248,7 @@ class IndexFieldCache(dict[str, dict[str, list["Model"]]]):
             cache[getattr(obj, field_name)].append(obj)
 
     def filter(self, error_if_not_found: bool = True, **kwargs: Any) -> set["Model"]:
-        invalid_kwargs = set(kwargs.keys()) - set(self.model.__fields_map__.keys())
+        invalid_kwargs = set(kwargs.keys()) - set(self.model.field_names)
         if invalid_kwargs:
             raise InvalidFieldError(f"{self.model.__name__} does not have fields named {invalid_kwargs}.")
 

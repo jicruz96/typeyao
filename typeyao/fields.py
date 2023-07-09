@@ -25,7 +25,7 @@ class InvalidFieldError(Exception):
 
 
 def Field(
-    name: typing.Optional[str] = None,
+    name: str | MissingType[str] = MISSING,
     default: typing.Any = MISSING,
     default_factory: Callable[[], typing.Any] | MissingType = MISSING,
     type: typing.Any = MISSING,
@@ -86,7 +86,7 @@ class FieldInfo:
     def __init__(
         self,
         *,
-        name: typing.Optional[str] = None,
+        name: str | MissingType[str] = MISSING,
         default: typing.Any = MISSING,
         default_factory: Callable[[], typing.Any] | MissingType = MISSING,
         type: typing.Any = MISSING,
@@ -110,7 +110,7 @@ class FieldInfo:
         self.__repr = repr
         self.__hash = hash
         self.__compare = compare
-        self.__metadata = metadata
+        self.__metadata = metadata or {}
         self.__primary_key = primary_key
         self.__unique = (primary_key is True) or unique
         self.__index = index
@@ -118,6 +118,7 @@ class FieldInfo:
         self.__choices = choices or []
         self.__type = type if type is not None else None.__class__
         self.__owner: type["Model"] | None = None
+        self.__classvar_default: typing.Any = MISSING
         if default is not MISSING:
             for attr_name in ("default_factory", "unique", "primary_key"):
                 if getattr(self, attr_name) not in (MISSING, False):
@@ -136,8 +137,8 @@ class FieldInfo:
         return self.__owner
 
     @property
-    def name(self) -> str:
-        return self.__name or "Unnamed"
+    def name(self) -> str | MissingType[str]:
+        return self.__name
 
     @property
     def primary_key(self) -> bool:
@@ -176,7 +177,7 @@ class FieldInfo:
         return self.__compare
 
     @property
-    def metadata(self) -> Mapping[typing.Any, typing.Any] | None:
+    def metadata(self) -> Mapping[typing.Any, typing.Any]:
         return self.__metadata
 
     @property
@@ -213,20 +214,14 @@ class FieldInfo:
 
     def __get__(self, instance: "Model" | None, owner: type["Model"]) -> typing.Any:
         if self.classfield:
-            return self.default
+            return self.__classvar_default
         if instance is None:
             return self
         return instance.__dict__[self.name]  # type: ignore
 
     def _validate_value_type(self, value: typing.Any) -> None:
         assert not isinstance(self.type, MissingType), f"type unset for {self}"
-        try:
-            check_type(value=value, type_=self.type)
-        except InvalidTypeError:
-            raise InvalidTypeError(
-                f"Invalid type for field {self.name!r}: expected {self.type.__name__}. "
-                f"got {value.__class__.__name__}."
-            ) from None
+        check_type(value=value, type_=self.type)
         if self.choices and value not in self.choices:
             raise InvalidTypeError(f"Value must be one of {','.join(map(repr,self.choices))} but value was {value}")
 
@@ -234,7 +229,7 @@ class FieldInfo:
         if owner is not self.owner:
             raise InvalidFieldError(f"Field {self.name!r} on {owner.__name__} is not a classfield.")
         self._validate_value_type(value)
-        self.__default = value
+        self.__classvar_default = value
 
     def __set__(self, instance: "Model", value: typing.Any) -> None:
         self._validate_value_type(value)
@@ -244,7 +239,7 @@ class FieldInfo:
         if self.owner:
             raise InvalidFieldError(f"Field {name!r} on {owner.__name__} has already been set to {self.owner}")
 
-        if self.__name is not None and self.__name != name:
+        if self.__name is not MISSING and self.__name != name:
             raise InvalidFieldError(f"Field '{name}' has conflicting names: {self.__name} != {name}")
 
         annotation = owner.__annotations__.get(name, MISSING)
@@ -271,7 +266,7 @@ class FieldInfo:
             setter_name = f"set_{name}"
             if hasattr(owner, setter_name):
                 try:
-                    self.__default = getattr(owner, setter_name)()
+                    self.__classvar_default = getattr(owner, setter_name)()
                 except Exception as e:
                     raise InvalidFieldError(
                         f"Error while setting class variable '{name}' via {setter_name}: {e.__class__.__name__}: "
@@ -279,12 +274,14 @@ class FieldInfo:
                     )
             elif not isinstance(self.default_factory, MissingType):
                 try:
-                    self.__default = self.default_factory()
+                    self.__classvar_default = self.default_factory()
                 except Exception as e:
                     raise InvalidFieldError(
                         f"Error while setting class variable '{name}' via default factory: {e.__class__.__name__}: "
                         f"{e}"
                     )
+            else:
+                self.__classvar_default = self.default
         else:
             self._validate_instance_field_defaults(owner, name)
         self.__name = name
@@ -330,8 +327,13 @@ class FieldInfo:
     def _validate_instance_field_defaults(self, owner: type["Model"], name: str):
         setter_name = f"set_{name}"
         setter_repr = f"{owner.__name__}.{setter_name}()"
-        defaults = {getattr(owner, f"set_{name}", MISSING), self.default, self.default_factory} - {MISSING}
-        default_count = len(defaults)
+        default_count = 0
+        if self.default is not MISSING:
+            default_count += 1
+        if self.default_factory is not MISSING:
+            default_count += 1
+        if hasattr(owner, setter_name):
+            default_count += 1
         if default_count > 1:
             raise InvalidFieldError(
                 f"Field '{name}' must have only one of 'default', 'default_factory', and {setter_repr!r}"

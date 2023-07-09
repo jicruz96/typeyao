@@ -6,13 +6,17 @@ from typing import Any
 from typeyao.base._meta import PROTECTED_MODEL_ATTRIBUTE_NAMES, ModelCache, ModelFieldMap, ModelMeta
 from typeyao.base._typing import MISSING, InvalidTypeError
 from typeyao.base.exceptions import InvalidModelError
+from typeyao.fields import FieldInfo
 
 
 class Model(metaclass=ModelMeta):
     __fields_map__: ModelFieldMap
     __cache__: ModelCache
+    _is_abstract: bool
 
     def __init__(self, **kwargs: Any):
+        if self._is_abstract:
+            raise InvalidModelError(f"Cannot instantiate abstract model: {self.__class__.__name__}")
         self.__init_kwargs__(kwargs)
         self.__init_defaults__(exclude=set(kwargs))
         self.__post_init__()
@@ -33,16 +37,15 @@ class Model(metaclass=ModelMeta):
         if errors:
             raise InvalidModelError("\n" + json.dumps(errors, indent=4))
 
-    def __init_defaults__(self, exclude: set[str] | None = None) -> None:
+    def __init_defaults__(self, exclude: set[str] | None = None) -> set[FieldInfo]:
         exclude = exclude or set()
-        init_fields = {f for f in self.__fields_map__.values() if f.name not in exclude and f.init is True}
-        fields_with_setters = {f for f in init_fields if hasattr(self, f"set_{f.name}")}
-        fields_with_default_factories = {f for f in init_fields if f.default_factory is not MISSING}
-        fields_with_defaults = {f for f in init_fields if f.default is not MISSING}
-        missing_fields = init_fields - fields_with_setters - fields_with_default_factories - fields_with_defaults
+        fields = {f for f in self.__fields_map__.values() if f.name not in exclude}
+        fields_with_setters = {f for f in fields if hasattr(self, f"set_{f.name}")}
+        fields_with_default_factories = {f for f in fields if f.default_factory is not MISSING}
+        fields_with_defaults = {f for f in fields if f.default is not MISSING}
+        missing_fields = fields - fields_with_setters - fields_with_default_factories - fields_with_defaults
         if missing_fields:
             raise InvalidModelError(f"Missing fields: {', '.join(map(lambda f: repr(f.name), missing_fields))}")
-
         for field in fields_with_defaults:
             setattr(self, field.name, field.default)
 
@@ -51,6 +54,7 @@ class Model(metaclass=ModelMeta):
 
         for field in fields_with_setters:
             setattr(self, field.name, getattr(self, f"set_{field.name}")())
+        return fields
 
     def __post_init__(self) -> None:
         pass
@@ -78,5 +82,5 @@ class Model(metaclass=ModelMeta):
         return cls.__cache__.filter(**kwargs)
 
     @classmethod
-    def get(cls, **kwargs: Any) -> Model:
-        return cls.__cache__.get(**kwargs)
+    def get(cls, pk: Any) -> Model:
+        return cls.__cache__.get(pk)
