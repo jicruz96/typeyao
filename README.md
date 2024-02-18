@@ -1,25 +1,11 @@
 
 # `typeyao` - yet another data validation library
 
-👋🏽 Hello! I'm J.I.
+### :warning: **You _probably_ shouldn't use this.** :warning:
 
-I use data libraries like `dataclasses` and `pydantic` a lot. Sometimes, these libraries don't work the way I want them to, so I built my own version.
+This was a fun experiment of mine in learning some meta-programming skills for Python. It's also a pain to maintain, so I'm not working on it anymore. Use it at your own risk.
 
-- [**TL;DR**](#tldr)
-- [Requirements](#requirements)
-- [Install](#install)
-- [Usage](#usage)
-- [FAQ](#faq)
-  - [Why `typeyao`?](#why-typeyao)
-  - [Why not `dataclasses` ?](#why-not-dataclasses-)
-  - [Why not `pydantic`?](#why-not-pydantic)
-  - [What does `typeyao` mean?](#what-does-typeyao-mean)
-- [Contributing](#contributing)
-  - [Install for Development](#install-for-development)
-    - [Development Requirements](#development-requirements)
-
-
-## **TL;DR**
+#### **TL;DR**
 * `typeyao`
   * ... is a dataclass-flavored library similar to `pydantic` and `dataclasses`.
   * ... can be used as an in-memory database, which is nice for prototyping.
@@ -29,25 +15,16 @@ I use data libraries like `dataclasses` and `pydantic` a lot. Sometimes, these l
   * ... is pronounced "type-yao" (like "type-yow").
 * You're probably better off using `pydantic` anyways since it's much better supported by the Python ecosystem, so use `typeyao` at your own risk.
 
-See the [FAQ](#faq) for more details.
-
-
 ## Requirements
 * Python 3.10+
 
 ## Install
 
-`typeyao` is not yet available on PyPI. Check out the [contributing](#contributing) section to see how you can install it for development.
-
-
+Clone this repo and use `poetry`  to install the environment.
 
 ## Usage
 
-#### Use `typeyao` the same way you would use `dataclasses` or `pydantic`:
-
-<details>
-<summary>Click to expand</summary>
-
+### Use `typeyao` the same way you would use `dataclasses` or `pydantic`:
 
 ```python
 # inside some .py file...
@@ -68,31 +45,9 @@ Person(name=1)  # 🙅🏽‍♂️ InvalidModelError
 }
 ```
 
-</details>
+### In-memory database
 
-#### You can also use it as an in-memory database. Read more about that in the ["Why `typeyao`?"](#why-typeyao) section of the [FAQ](#faq).
-
-
-## FAQ
-
-
-### Why `typeyao`?
-
-> **TL;DR** -- you wanted to use `dataclasses` or `pydantic` but they sucked at a specific thing, or you _really_ want one of `typeyao`'s exclusive features (click below).
-
-<details>
-
-<summary>Click to expand</summary>
-
-#### In-memory database
-
-
-If you want to prototype a web application quickly and don't want to deal with the overhead of setting up a database, you can use `typeyao` as an in-memory database, using your models as access points to your data. See an example below.
-
-> ⚠️ `typeyao` doesn't support any kind of persistence (_yet!_). All data created at runtime will be lost when the program exits. If you want to persist your data, you should use an Object Relational Mapper (ORM) like [SQLAlchemy](https://www.sqlalchemy.org/).
-
-<details>
-<summary>Click to expand</summary>
+If you want to prototype a web application quickly and don't want to deal with the overhead of setting up a database, you can use `typeyao` as an in-memory database, using your models as access points to your data. 
 
 ```python
 from typeyao import Model, Field
@@ -109,14 +64,8 @@ print(snap.name) # Snap
 rice_family = Person.filter(family_name="Krispies")
 print([person.name for person in rice_family]) # ["Snap", "Crackle", "Pop"]
 ```
-</details>
 
-
-
-#### Better error messages
-
-<details>
-<summary>Click to expand</summary>
+### Better error messages
 
 Copy/paste the snippet below into a file and run it to see the difference in error messages between `dataclasses`, `pydantic`, and `typeyao`.
 
@@ -173,13 +122,8 @@ age
 }
 
 ```
-</details>
 
-#### Model-aware defaults.
-
-<details>
-
-<summary>Click to expand</summary>
+### Reactive fields
 
 Let's say you have the model below:
 
@@ -204,57 +148,9 @@ class Person(Model):
         return self.age >= 18
 ```
 
-> **Note to Beginners:**
-> If you're a python beginner, you probably want to look at `@property` decorators before you use this feature. `@property` decorators are more "pythonic". _But_ properties are computed every time you access them, and properties won't be a part of the data model's schema. So if it's expensive to compute the property or if you want that property to be a part of the model schema, you should use `typeyao`'s `set_<attribute_name>` method.
-
-`pydantic` can handle this edge case via `@validator`, and `dataclasses` via `__post_init__`, but both of those solutions are a bit clunky (see below).
-
-<details>
-
-<summary>See how **pydantic** does it</summary>
-
-
-```python
-from pydantic import BaseModel, validator
-
-class Person(BaseModel):
-    name: str
-    age: int
-    is_adult: bool
-
-    @validator("is_adult")
-    def set_is_adult(cls, v, values):
-        return values["age"] >= 18
-```
-</details>
-
-<details>
-<summary>See how **dataclasses** does it</summary>
-
-```python
-from dataclasses import dataclass
-
-@dataclass
-class Person:
-    name: str
-    age: int
-    is_adult: bool = False # default is required
-
-    def __post_init__(self):
-        # and the post_init can override the default
-        self.is_adult = self.age >= 18
-```
-
-</details>
-</details>
-</details>
-
 <hr>
 
 ### Why not `dataclasses` ?
-
-<details>
-<summary>Click to expand</summary>
 
 #### There are better options
 
@@ -295,23 +191,15 @@ class Employee(Person):
 e = Employee(name="J.I.", employee_id="1") 
 ```
 
-</details>
-
 <hr>
 
 ### Why not `pydantic`?
-
-<details>
-<summary>Click to expand</summary>
 
 **You *should* use [`pydantic`](https://docs.pydantic.dev/latest/)**, unless you already know why it wouldn't work. It is a much better supported library.
 
 But here a few reasons you may prefer `typeyao` over `pydantic`.
 
 #### `typeyao` handles nested data structures better than `pydantic`
-
-<details>
-<summary>Example</summary>
 
 ```python
 from __future__ import annotations
@@ -341,14 +229,9 @@ AssertionError
 
 Switch out the `pydantic` import in the previous snippet with `from typeyao import Model` and the assertion will pass 🎉.
 
-</details>
-
 #### `pydantic` coerces your data. `typeyao` does not.
 
 Type coercion is fantastic for some use cases, but very annoying when you didn't ask for it (see example below).
-
-<details>
-<summary>Example</summary>
 
 ```python
 
@@ -366,9 +249,6 @@ class Person(typeyao.Model):
 
 me = Person(name=1)  # raises a typeyao.base.InvalidModelError
 ```
-</details>
-
-</details>
 
 <hr>
 
@@ -383,21 +263,3 @@ Example:
 > **English:** "These models need to be explicitly typed."
 > 
 > **Puerto Rican:** "Esos modelos tienen que estar 'type'iao sí o sí."
-
-## Contributing
-
-### Install for Development
-
-<details>
-<summary>Click to expand</summary>
-
-#### Development Requirements
-* Poetry
-* Python 3.10+
-
-* Clone this repo
-* `cd` into the repo
-* `poetry install`
-* `poetry shell` to activate the virtual environment
-
-</details>
