@@ -206,7 +206,8 @@ def check_type(
             registered_type.__class__ if check_class else registered_type
         ).__name__
         raise InvalidTypeError(
-            f"value must be of type {expected_type}, not of type {type(value).__name__} (value: {value!r})"
+            f"value must be of type {expected_type}, not of type "
+            f"{type(value).__name__} (value: {value!r})"
         )
     return result
 
