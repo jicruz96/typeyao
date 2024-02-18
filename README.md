@@ -1,10 +1,6 @@
 
 # `typeyao` - yet another data validation library
 
-👋🏽 Hello! I'm J.I.
-
-I use data libraries like `dataclasses` and `pydantic` a lot. Sometimes, these libraries don't work the way I want them to, so I built my own version.
-
 - [**TL;DR**](#tldr)
 - [Requirements](#requirements)
 - [Install](#install)
